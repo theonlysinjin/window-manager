@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.sswanepoel.windowmanager</string>
+    <string>com.theonlysinjin.windowmanager</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Applications/WindowManager.app/Contents/MacOS/app</string>

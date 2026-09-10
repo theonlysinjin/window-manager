@@ -15,7 +15,7 @@ setup(
             "packages": ["window_manager", "yaml"],
             "plist": {
                 "CFBundleName": "WindowManager",
-                "CFBundleIdentifier": "com.sswanepoel.windowmanager",
+                "CFBundleIdentifier": "com.theonlysinjin.windowmanager",
                 "CFBundleShortVersionString": "0.1.0",
                 "LSUIElement": True,  # background agent, no Dock icon
                 "NSAppleEventsUsageDescription": "Move and resize windows of other apps.",

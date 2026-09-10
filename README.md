@@ -16,6 +16,15 @@ flowchart LR
     AX --> Win[Focused window]
 ```
 
+macOS exposes everything needed through public frameworks. The app runs as a background
+agent on a `CFRunLoop` and owns no window.
+
+| Need | Framework | Python binding |
+|---|---|---|
+| Read mouse and key events | Quartz `CGEventTap` | `pyobjc-framework-Quartz` |
+| Move and resize windows | Accessibility (`AXUIElement`) | `pyobjc-framework-ApplicationServices` |
+| Display geometry | `NSScreen` | `pyobjc-framework-Cocoa` |
+
 ## Install
 
 ```bash
@@ -72,6 +81,9 @@ bindings:
 | `trigger.mods` | `shift`, `ctrl`, `alt`, `cmd` |
 | `swallow` | `true` (default) hides the event from the app below |
 
+A trigger is a mouse button or a key combination. Both feed the same matcher and reach the same
+registry — there is no key-remapping middle step.
+
 Modifiers match exactly. A binding on `f13` does not fire for `shift+f13`.
 
 macOS stamps an `fn` flag on every function key press, so the matcher ignores that bit.
@@ -121,6 +133,29 @@ make install-agent   # launchd plist in ~/Library/LaunchAgents
 ```
 
 `make uninstall-agent` removes it. Logs go to `/tmp/window-manager.log`.
+`PyInstaller` is the fallback if `py2app` fights the pyobjc bundle.
+
+## Design decisions
+
+| Question | Answer |
+|---|---|
+| Swallow the mouse button, or pass it through? | Swallow by default. `swallow: false` passes it on. The tap also hides the matching mouse-up. |
+| Does `send_key` need a re-entry guard? | Yes. Posted events carry a marker in `kCGEventSourceUserData`, and the tap skips them. |
+| Which mouse buttons does the device report? | Run `make run` and press each one. |
+| Should `move_display` keep the relative frame? | Relative by default. `keep: size` and `keep: maximise` cover the rest. |
+| Menu bar icon, or CLI only? | CLI only for now. |
+
+`send_key` is not window management. It lives in `actions/keyboard.py` and exists to show the
+registry accepts unrelated action types. Use it to drive another app from a mouse button.
+
+`config.yaml` is the single source of truth. The `bind` wizard is one front end that writes it;
+the runner never depends on the wizard.
+
+## Roadmap
+
+1. Quarters, thirds, centre, grow and shrink.
+2. Cycle through sizes on a repeated press of the same trigger.
+3. A `rumps` menu bar app, if the CLI becomes cramped.
 
 ## Layout
 
@@ -137,6 +172,8 @@ make install-agent   # launchd plist in ~/Library/LaunchAgents
 | `geometry.py` | Frame arithmetic. Pure. |
 | `watch.py` | Config file polling and reload. |
 | `app.py` / `cli.py` | Entry point and config wizard. |
+
+Only `window.py` and `actions/keyboard.py` perform side effects. Everything else is pure.
 
 ## Coordinates
 

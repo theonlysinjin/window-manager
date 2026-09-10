@@ -1,6 +1,6 @@
 VENV := .venv
 PY   := $(VENV)/bin/python
-LABEL := com.sswanepoel.windowmanager
+LABEL := com.theonlysinjin.windowmanager
 PLIST := $(HOME)/Library/LaunchAgents/$(LABEL).plist
 
 .PHONY: venv test run check app install-agent uninstall-agent clean
