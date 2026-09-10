@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "window-manager"
+version = "0.1.0"
+description = "Mouse and keyboard driven window tiling for macOS"
+requires-python = ">=3.11"
+dependencies = [
+    "pyobjc-framework-Quartz>=10",
+    "pyobjc-framework-Cocoa>=10",
+    "pyobjc-framework-ApplicationServices>=10",
+    "PyYAML>=6",
+]
+
+[project.scripts]
+window-manager = "window_manager.app:main"
+
+[tool.setuptools.packages.find]
+include = ["window_manager*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

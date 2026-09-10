@@ -1,0 +1,25 @@
+# Copy to ~/.config/window-manager/config.yaml
+#
+# trigger: {type: mouse, button: <n>} or {type: key, key: <name>, mods: [...]}
+# mods:    shift, ctrl, alt, cmd, fn
+# swallow: true (default) hides the event from the app below. Set false to pass it on.
+
+bindings:
+  - trigger: {type: mouse, button: 3}
+    action: maximise
+
+  - trigger: {type: mouse, button: 4}
+    action: half
+    args: {side: left}
+
+  - trigger: {type: key, key: f13, mods: [ctrl, alt]}
+    action: half
+    args: {side: right}
+
+  - trigger: {type: key, key: f14}
+    action: move_display
+    args: {direction: right, keep: relative}
+
+  - trigger: {type: mouse, button: 5}
+    action: send_key
+    args: {key: f13, mods: [cmd, shift]}
