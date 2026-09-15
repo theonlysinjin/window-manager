@@ -6,7 +6,7 @@
     <string>com.theonlysinjin.windowmanager</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Applications/WindowManager.app/Contents/MacOS/app</string>
+        <string>/Applications/WindowManager.app/Contents/MacOS/WindowManager</string>
         <string>run</string>
     </array>
     <key>RunAtLoad</key>
