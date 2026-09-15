@@ -17,13 +17,14 @@ flowchart LR
 ```
 
 macOS exposes everything needed through public frameworks. The app runs as a background
-agent on a `CFRunLoop` and owns no window.
+agent on the `NSApplication` run loop. It owns no window, only a status bar item.
 
 | Need | Framework | Python binding |
 |---|---|---|
 | Read mouse and key events | Quartz `CGEventTap` | `pyobjc-framework-Quartz` |
 | Move and resize windows | Accessibility (`AXUIElement`) | `pyobjc-framework-ApplicationServices` |
 | Display geometry | `NSScreen` | `pyobjc-framework-Cocoa` |
+| Status bar item | `NSStatusBar` | `pyobjc-framework-Cocoa` |
 
 ## Install
 
@@ -58,6 +59,26 @@ make run                                     # foreground, --debug
 Use it to find a mouse button number, then stop it. Do not leave it running.
 
 The agent watches the config file and reloads on change. A broken config keeps the old bindings.
+
+Only one copy runs. A second copy finds the lock at
+`~/Library/Application Support/window-manager/run.lock` held, logs one line, and exits 0.
+The lock frees when the process ends, including on a crash. `make check` reports the pid of
+the running instance.
+
+## Status bar
+
+The agent adds a status bar item. The menu is read only apart from **Quit**.
+
+| Item | Purpose |
+|---|---|
+| Header | Name and the number of loaded bindings. |
+| Shortcuts | Every binding as `trigger  action args`. Follows a config reload. |
+| Quit | Stops the run loop and releases the lock. |
+
+The icon is a template image, so macOS recolours it for a light or dark menu bar.
+
+Quit through the menu does not stop launchd. Run `make uninstall-agent` first, or launchd
+restarts the app.
 
 ## Config
 
@@ -126,14 +147,33 @@ Keep the layout pure — `(Frame, Screen) -> Frame` — and let `_apply` do the 
 
 ## Package and autostart
 
+`py2app` builds a standalone bundle. It embeds the Python runtime and every dependency,
+so the app runs without the `.venv`.
+
 ```bash
-make app             # dist/WindowManager.app, LSUIElement=1, no Dock icon
-cp -r dist/WindowManager.app /Applications/
+make icon            # redraw the icon and the status bar glyph
+make app             # dist/WindowManager.app, LSUIElement=1, no Dock icon, ~41 MB
+make install-app     # rebuild and copy to /Applications
 make install-agent   # launchd plist in ~/Library/LaunchAgents
 ```
 
-`make uninstall-agent` removes it. Logs go to `/tmp/window-manager.log`.
-`PyInstaller` is the fallback if `py2app` fights the pyobjc bundle.
+The bundle carries an ad-hoc signature. `make app` verifies it. The executable is
+`WindowManager.app/Contents/MacOS/WindowManager` and takes the same subcommands as the module:
+
+```bash
+/Applications/WindowManager.app/Contents/MacOS/WindowManager check
+```
+
+`make uninstall-agent` removes the agent. Logs go to `/tmp/window-manager.log`.
+
+`packaging/main.py` is the bundle entry point. py2app runs the entry script as `__main__`,
+which breaks the relative imports in `window_manager/app.py`, so the script only calls `main()`.
+
+`packaging/icon.py` draws both artwork files with Quartz — no image editor, no binary source
+file. `make app` runs it first. See [packaging/README.md](packaging/README.md).
+
+`setup_app.py` clears `install_requires` before py2app reads it. setuptools fills that field
+from `pyproject.toml` and py2app rejects a populated one.
 
 ## Design decisions
 
@@ -143,7 +183,11 @@ make install-agent   # launchd plist in ~/Library/LaunchAgents
 | Does `send_key` need a re-entry guard? | Yes. Posted events carry a marker in `kCGEventSourceUserData`, and the tap skips them. |
 | Which mouse buttons does the device report? | Run `make run` and press each one. |
 | Should `move_display` keep the relative frame? | Relative by default. `keep: size` and `keep: maximise` cover the rest. |
-| Menu bar icon, or CLI only? | CLI only for now. |
+| Menu bar icon, or CLI only? | A status bar item, view only. Editing bindings stays in the config file. |
+| How to stop a second copy? | An `flock` on a lock file. It survives a crash, unlike a pid file. |
+| Where does the artwork come from? | Drawn in code by `packaging/icon.py`. One layout feeds the app icon and the status bar glyph. |
+| Filled panes in the menu bar? | No. At 18pt they merge into a block. The glyph is a stroked frame. |
+| `CFRunLoopRun` or `NSApplication.run`? | `NSApplication.run`. A status bar menu needs the app event loop. |
 
 `send_key` is not window management. It lives in `actions/keyboard.py` and exists to show the
 registry accepts unrelated action types. Use it to drive another app from a mouse button.
@@ -155,7 +199,7 @@ the runner never depends on the wizard.
 
 1. Quarters, thirds, centre, grow and shrink.
 2. Cycle through sizes on a repeated press of the same trigger.
-3. A `rumps` menu bar app, if the CLI becomes cramped.
+3. Editable bindings from the status bar menu.
 
 ## Layout
 
@@ -171,6 +215,9 @@ the runner never depends on the wizard.
 | `screens.py` | Screen list in accessibility coordinates. |
 | `geometry.py` | Frame arithmetic. Pure. |
 | `watch.py` | Config file polling and reload. |
+| `single.py` | Single-instance lock. |
+| `menu.py` | Status bar item and its menu. |
+| `resources/statusbar.pdf` | Status bar glyph. Vector, template, drawn by `packaging/icon.py`. |
 | `app.py` / `cli.py` | Entry point and config wizard. |
 
 Only `window.py` and `actions/keyboard.py` perform side effects. Everything else is pure.

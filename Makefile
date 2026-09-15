@@ -3,7 +3,7 @@ PY   := $(VENV)/bin/python
 LABEL := com.theonlysinjin.windowmanager
 PLIST := $(HOME)/Library/LaunchAgents/$(LABEL).plist
 
-.PHONY: venv test run check app install-agent uninstall-agent clean
+.PHONY: venv test run check icon app install-app install-agent uninstall-agent clean
 
 venv:
 	python3 -m venv $(VENV)
@@ -19,9 +19,18 @@ run:
 check:
 	$(PY) -m window_manager.app check
 
-app:
+icon:
+	$(PY) packaging/icon.py
+
+app: icon
 	$(PY) -m pip install -q py2app
+	rm -rf build dist
 	$(PY) setup_app.py py2app
+	codesign --verify --deep --strict dist/WindowManager.app
+
+install-app: app
+	rm -rf /Applications/WindowManager.app
+	cp -R dist/WindowManager.app /Applications/
 
 install-agent:
 	cp packaging/$(LABEL).plist $(PLIST)

@@ -8,10 +8,10 @@ import signal
 import sys
 from pathlib import Path
 
+import AppKit
 from Foundation import NSOperationQueue
-from Quartz import CFRunLoopGetCurrent, CFRunLoopRun, CFRunLoopStop
 
-from . import actions, bindings, permissions
+from . import actions, bindings, menu, permissions, single
 from .bindings import Binding, ConfigError, Trigger
 from .input import tap
 from .watch import watch
@@ -34,6 +34,24 @@ def _later(fn, *args) -> None:
     NSOperationQueue.mainQueue().addOperationWithBlock_(block)
 
 
+def _stop() -> None:
+    """Leave the app run loop. stop_ lands on the next event, so post one."""
+    app = AppKit.NSApp()
+    app.stop_(None)
+    event = AppKit.NSEvent.otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2_(
+        AppKit.NSEventTypeApplicationDefined,
+        AppKit.NSMakePoint(0, 0),
+        0,
+        0,
+        0,
+        None,
+        0,
+        0,
+        0,
+    )
+    app.postEvent_atStart_(event, True)
+
+
 def _dispatch(lookup, trigger: Trigger) -> bool:
     """Match a trigger and queue its action. Returns True to swallow the event."""
     binding = lookup(trigger)
@@ -46,6 +64,11 @@ def _dispatch(lookup, trigger: Trigger) -> bool:
 
 
 def run(path: Path, debug: bool = False) -> int:
+    lock = single.acquire()
+    if lock is None:
+        log.info("another instance holds %s — exiting", single.LOCK_PATH)
+        return 0
+
     missing = permissions.report(prompt=True)
     if missing:
         log.error("missing grants: %s — open %s", ", ".join(missing), permissions.SETTINGS_HINT)
@@ -58,24 +81,30 @@ def run(path: Path, debug: bool = False) -> int:
         log.error("%s", exc)
         return 1
 
+    app = AppKit.NSApplication.sharedApplication()
+    app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyAccessory)
+    status = menu.install(state["bindings"], _stop)
+
     def reload_config() -> None:
         try:
             found = _load(path)
             state["bindings"], state["lookup"] = found, bindings.matcher(found)
+            status(found)
         except ConfigError as exc:
             log.error("reload failed, keeping the old bindings: %s", exc)
 
     handle = tap.install(lambda trigger: _dispatch(state["lookup"], trigger), debug=debug)
     timer = watch(path, reload_config)
 
-    loop = CFRunLoopGetCurrent()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, lambda *_: CFRunLoopStop(loop))
+        signal.signal(sig, lambda *_: _stop())
 
     log.info("running — %d bindings, ctrl-c to stop", len(state["bindings"]))
-    CFRunLoopRun()
+    app.run()
     timer.invalidate()
     del handle
+    del status
+    lock.close()
     log.info("stopped")
     return 0
 
@@ -84,6 +113,8 @@ def check(path: Path) -> int:
     missing = permissions.report(prompt=False)
     print("Accessibility:    ", "missing" if "Accessibility" in missing else "granted")
     print("Input Monitoring: ", "missing" if "Input Monitoring" in missing else "granted")
+    pid = single.holder_pid()
+    print("Instance:         ", f"running (pid {pid})" if pid else "not running")
     try:
         found = _load(path)
     except ConfigError as exc:
