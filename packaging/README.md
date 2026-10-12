@@ -6,6 +6,7 @@ Bundle inputs for `make app`.
 |---|---|
 | `main.py` | Bundle entry point. py2app runs it as `__main__`, so it only calls `main()`. |
 | `icon.py` | Draws the app icon and the status bar glyph. |
+| `cert.sh` | Creates the self-signed code signing certificate in the login keychain. `make cert` runs it. |
 | `com.theonlysinjin.windowmanager.plist` | launchd agent. `make install-agent` copies it. |
 
 ## Artwork

@@ -2,8 +2,9 @@ VENV := .venv
 PY   := $(VENV)/bin/python
 LABEL := com.theonlysinjin.windowmanager
 PLIST := $(HOME)/Library/LaunchAgents/$(LABEL).plist
+CERT  := WindowManager Local Signing
 
-.PHONY: venv test run check icon app install-app install-agent uninstall-agent clean
+.PHONY: venv test run check icon cert app install-app install-agent uninstall-agent reset-grants clean
 
 venv:
 	python3 -m venv $(VENV)
@@ -22,10 +23,14 @@ check:
 icon:
 	$(PY) packaging/icon.py
 
-app: icon
+cert:
+	sh packaging/cert.sh
+
+app: icon cert
 	$(PY) -m pip install -q py2app
 	rm -rf build dist
 	$(PY) setup_app.py py2app
+	codesign --force --deep --sign "$(CERT)" dist/WindowManager.app
 	codesign --verify --deep --strict dist/WindowManager.app
 
 install-app: app
@@ -40,6 +45,11 @@ install-agent:
 uninstall-agent:
 	launchctl unload $(PLIST) 2>/dev/null || true
 	rm -f $(PLIST)
+
+# clears stale TCC rows left by earlier ad-hoc builds
+reset-grants:
+	tccutil reset Accessibility $(LABEL)
+	tccutil reset ListenEvent $(LABEL)
 
 clean:
 	rm -rf build dist .pytest_cache

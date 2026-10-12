@@ -42,7 +42,8 @@ The agent needs two grants in System Settings → Privacy & Security:
 - **Input Monitoring** — to read the event tap.
 
 Grants attach to the signed binary. During development the binary is the terminal that runs
-`make run`. For daily use, grant them to `WindowManager.app`. Expect to re-grant after a rebuild.
+`make run`. For daily use, grant them to `WindowManager.app`. The bundle carries a local
+signing certificate, so the grants survive a rebuild.
 
 ```bash
 make check         # reports both grants and prints the loaded bindings
@@ -152,12 +153,16 @@ so the app runs without the `.venv`.
 
 ```bash
 make icon            # redraw the icon and the status bar glyph
+make cert            # local code signing certificate, once per machine
 make app             # dist/WindowManager.app, LSUIElement=1, no Dock icon, ~41 MB
 make install-app     # rebuild and copy to /Applications
 make install-agent   # launchd plist in ~/Library/LaunchAgents
 ```
 
-The bundle carries an ad-hoc signature. `make app` verifies it. The executable is
+`make app` signs the bundle with the "WindowManager Local Signing" certificate and verifies it.
+An ad-hoc signature pins the code hash, so macOS drops the grants on every rebuild. The stable
+certificate keeps them. `make cert` asks once for your login password to trust the certificate.
+`make reset-grants` clears stale rows from earlier ad-hoc builds. The executable is
 `WindowManager.app/Contents/MacOS/WindowManager` and takes the same subcommands as the module:
 
 ```bash
